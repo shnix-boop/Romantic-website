@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cathy's Eternal Heart</title>
+<style>
+  body { margin: 0; overflow: hidden; background: #000; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+
+<script>
+const MESSAGE = "I Love You ";
+const NAME = "Cathy";
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+let stars = [];
+let nameStars = [];
+let particles = [];
+let fallingPetals = [];
+
+let flow = 0;
+let time = 0;
+let bloomProgress = 0;
+
+const starCount = 400;
+
+/* ---------------- RESIZE ---------------- */
+function resize() {
+  canvas.width = innerWidth;
+  canvas.height = innerHeight;
+  initStars();
+  initNameConstellation();
+  createParticles();
+  createPetals();
+}
+addEventListener("resize", resize);
+resize();
+
+/* ---------------- BACKGROUND STARS ---------------- */
+function initStars() {
+  stars = [];
+  for (let i = 0; i < starCount; i++) {
+    stars.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      size: Math.random() * 1.5,
+      twinkle: Math.random() * Math.PI * 2,
+      speed: 0.02 + Math.random() * 0.05
+    });
+  }
+}
+
+/* ---------------- NAME CLUSTER ---------------- */
+function initNameConstellation() {
+  nameStars = [];
+  const tempCanvas = document.createElement("canvas");
+  const tCtx = tempCanvas.getContext("2d");
+  tempCanvas.width = canvas.width;
+  tempCanvas.height = canvas.height;
+
+  const fontSize = Math.min(canvas.width, canvas.height) / 6;
+  tCtx.font = `bold ${fontSize}px serif`;
+  tCtx.textAlign = "center";
+  tCtx.textBaseline = "middle";
+  tCtx.fillText(NAME, canvas.width / 2, canvas.height * 0.15);
+
+  const imageData = tCtx.getImageData(0, 0, canvas.width, canvas.height).data;
+  const step = Math.max(2, Math.floor(fontSize / 15));
+
+  for (let y = 0; y < canvas.height; y += step) {
+    for (let x = 0; x < canvas.width; x += step) {
+      if (imageData[(y * canvas.width + x) * 4 + 3] > 128) {
+        nameStars.push({ x, y, twinkle: Math.random() * Math.PI * 2 });
+      }
+    }
+  }
+}
+
+/* ---------------- ATMOSPHERE ---------------- */
+function createParticles() {
+  particles = [];
+  for (let i = 0; i < 120; i++) {
+    particles.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      size: Math.random() * 2,
+      speed: 0.2 + Math.random() * 0.4,
+      alpha: 0.3 + Math.random() * 0.5
+    });
+  }
+}
+
+function createPetals() {
+  fallingPetals = [];
+  for (let i = 0; i < 10; i++) {
+    fallingPetals.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      size: 6 + Math.random() * 6,
+      speed: 0.5 + Math.random(),
+      sway: Math.random() * 2
+    });
+  }
+}
+
+/* ---------------- HEART MATH ---------------- */
+function heart(t) {
+  return {
+    x: 16 * Math.pow(Math.sin(t), 3),
+    y: -(13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t))
+  };
+}
+
+/* -------- GLOW HEART (CENTERED, LARGER) -------- */
+function drawGlowHeart(pulse) {
+  ctx.save();
+  ctx.translate(canvas.width/2, canvas.height/2);
+  ctx.scale(pulse*3.5, pulse*3.5);
+
+  ctx.shadowColor = "rgba(255,50,120,0.9)";
+  ctx.shadowBlur = 80;
+
+  ctx.beginPath();
+  for (let t = 0; t < Math.PI*2; t += 0.01) {
+    const p = heart(t);
+    ctx.lineTo(p.x, p.y);
+  }
+  ctx.fillStyle = "rgba(255,60,120,0.18)";
+  ctx.fill();
+  ctx.restore();
+}
+
+/* -------- ROTATING BLOOMING ROSE (CENTERED, LARGER) -------- */
+function drawRose(pulse) {
+  ctx.save();
+  ctx.translate(canvas.width/2, canvas.height/2);
+  ctx.rotate(time * 0.2);
+
+  const baseScale = Math.min(canvas.width, canvas.height)/5;
+  ctx.scale(baseScale * pulse, baseScale * pulse);
+
+  ctx.shadowColor = "rgba(255,90,160,0.9)";
+  ctx.shadowBlur = 35;
+
+  function layer(scaleFactor, petals, c1, c2) {
+    ctx.save();
+    ctx.scale(scaleFactor, scaleFactor);
+    const grad = ctx.createRadialGradient(0,0,0,0,0,1);
+    grad.addColorStop(0, c1);
+    grad.addColorStop(1, c2);
+    ctx.fillStyle = grad;
+
+    ctx.beginPath();
+    for (let t = 0; t < Math.PI*2 * bloomProgress; t += 0.01) {
+      const r = Math.sin(petals*t) * 0.8;
+      ctx.lineTo(r*Math.cos(t), r*Math.sin(t));
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  layer(0.4, 6, "#ff4d88", "#990033");
+  layer(0.7, 8, "#ff6699", "#b30059");
+  layer(1, 10, "#ff1a75", "#660033");
+
+  ctx.restore();
+}
+
+/* ---------------- PARTICLES ---------------- */
+function drawParticles() {
+  particles.forEach(p => {
+    p.y -= p.speed;
+    if (p.y < 0) p.y = canvas.height;
+    ctx.fillStyle = `rgba(255,200,220,${p.alpha})`;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+    ctx.fill();
+  });
+}
+
+function drawFallingPetals() {
+  ctx.fillStyle = "rgba(255,120,160,0.6)";
+  fallingPetals.forEach(p => {
+    p.y += p.speed;
+    p.x += Math.sin(time + p.sway)*0.5;
+    if (p.y > canvas.height) {
+      p.y = -10;
+      p.x = Math.random()*canvas.width;
+    }
+    ctx.beginPath();
+    ctx.ellipse(p.x,p.y,p.size,p.size/2,Math.sin(time),0,Math.PI*2);
+    ctx.fill();
+  });
+}
+
+/* ---------------- MAIN DRAW ---------------- */
+function draw() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // Background gradient
+  const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  grad.addColorStop(0, "#000b1a");
+  grad.addColorStop(1, "#00050d");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // Twinkling stars
+  stars.forEach(s => {
+    s.twinkle += s.speed;
+    const alpha = 0.3 + Math.abs(Math.sin(s.twinkle)) * 0.7;
+    ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.size, 0, Math.PI*2);
+    ctx.fill();
+  });
+
+  // name cluster
+  ctx.save();
+  ctx.shadowColor = "rgba(180,220,255,0.9)";
+  ctx.shadowBlur = 10;
+  nameStars.forEach(ns => {
+    ns.twinkle += 0.03;
+    const alpha = 0.7 + Math.abs(Math.sin(ns.twinkle)) * 0.9;
+    ctx.fillStyle = `rgba(220,235,255,${alpha})`;
+    ctx.beginPath();
+    ctx.arc(ns.x, ns.y, 2.2, 0, Math.PI*2);
+    ctx.fill();
+  });
+  ctx.restore();
+
+  // Particles
+  drawParticles();
+  drawFallingPetals();
+
+  // Bloom progress
+  if(bloomProgress < 1) bloomProgress += 0.002;
+  const rhythm = 1 + Math.sin(time*3)*0.04;
+
+  // Glowing heart and rose (rotating behind)
+  drawGlowHeart(rhythm);
+  drawRose(rhythm);
+
+  // Flowing text heart 
+  ctx.save();
+  ctx.translate(canvas.width/2, canvas.height/2);
+  const textScale = Math.min(canvas.width, canvas.height)/50;
+  ctx.scale(textScale,textScale);
+  ctx.font = "2px Arial";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  // Gradient + pulse effect
+  const gradText = ctx.createRadialGradient(0,0,0,0,0,50);
+  const pulseColor = 0.5 + 0.5*Math.sin(time*4);
+  gradText.addColorStop(0, `rgba(50,150,255,${pulseColor})`);
+  gradText.addColorStop(1, `rgba(0,0,255,0.4)`);
+  ctx.fillStyle = gradText;
+
+  let distance = flow % 12;
+  for(let t=0; t<Math.PI*2; t+=0.02){
+    const p = heart(t);
+    if(distance <= 0){ ctx.fillText(MESSAGE, p.x, p.y); distance += 12; }
+    distance -= 1;
+  }
+  ctx.restore();
+
+  flow -= 0.2;
+  time += 0.01;
+
+  requestAnimationFrame(draw);
+}
+
+draw();
+</script>
+</body>
+</html>
